@@ -49,6 +49,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
   }
   .selector-title {
     font-size: 0.72rem;
@@ -57,41 +59,69 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
+  .selector-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
   .workout-count {
     font-size: 0.68rem;
     color: var(--text-dim);
     font-family: 'DM Mono', monospace;
   }
-  .workout-list {
-    max-height: 200px;
+  .hill-filter {
+    padding: 0.35rem 0.6rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+  .hill-filter:focus { outline: none; border-color: var(--green); }
+  .workout-table-wrap {
+    max-height: 280px;
     overflow-y: auto;
   }
-  .workout-item {
-    display: flex;
-    align-items: center;
-    padding: 0.65rem 1.1rem;
+  .workout-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+  }
+  .workout-table thead th {
+    text-align: left;
+    padding: 0.5rem 0.7rem;
+    font-weight: 600;
+    font-size: 0.63rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  .workout-table tbody tr {
     cursor: pointer;
-    border-bottom: 1px solid rgba(255,255,255,0.03);
     transition: background 0.15s;
   }
-  .workout-item:last-child { border-bottom: none; }
-  .workout-item:hover { background: var(--surface2); }
-  .workout-item.active { background: var(--green-dim); border-left: 3px solid var(--green); }
-  .workout-date {
+  .workout-table tbody tr:hover { background: var(--surface2); }
+  .workout-table tbody tr.active { background: var(--green-dim); }
+  .workout-table tbody td {
+    padding: 0.5rem 0.7rem;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
     font-family: 'DM Mono', monospace;
-    font-size: 0.8rem;
-    color: var(--green);
-    min-width: 100px;
-  }
-  .workout-filename {
     font-size: 0.75rem;
-    color: var(--text-dim);
-    margin-left: 1rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
-  .workout-item.active .workout-filename { color: var(--text); }
+  .workout-table tbody tr:last-child td { border-bottom: none; }
+  .workout-table .col-date { color: var(--green); min-width: 90px; }
+  .workout-table .col-hill { color: var(--text); min-width: 140px; font-family: 'Outfit', sans-serif; }
+  .workout-table .col-reps { color: var(--blue); text-align: center; }
+  .workout-table .col-elev { color: var(--green); text-align: right; }
+  .workout-table .col-avg-elev { color: var(--text-dim); text-align: right; }
+  .workout-table .col-avg-time { color: var(--text-dim); text-align: right; }
 
   /* Placeholder */
   .placeholder {
@@ -252,9 +282,14 @@
   <div class="workout-selector">
     <div class="selector-header">
       <span class="selector-title">Select a Workout</span>
-      <span class="workout-count" id="workout-count"></span>
+      <div class="selector-controls">
+        <select class="hill-filter" id="hill-filter">
+          <option value="">All Hills</option>
+        </select>
+        <span class="workout-count" id="workout-count"></span>
+      </div>
     </div>
-    <div class="workout-list" id="workout-list">
+    <div class="workout-table-wrap" id="workout-list">
       <div class="loading">
         <div class="spinner"></div>
         Loading workouts...
@@ -311,6 +346,8 @@ const BASE_PATH = getBasePath();
 let D = null;
 let R = [];
 let selectedWorkout = null;
+let allWorkouts = [];
+let currentFilter = '';
 
 const sum = (arr) => arr.reduce((a,b) => a+b, 0);
 const avg = (arr) => arr.length ? sum(arr) / arr.length : 0;
@@ -319,38 +356,44 @@ function fmtDurFromS(s) {
   return `${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,'0')}`;
 }
 
+function fmtTime(seconds) {
+  return `${Math.floor(seconds/60)}:${String(Math.round(seconds%60)).padStart(2,'0')}`;
+}
+
 // Load workout list on page load
 async function loadWorkouts() {
   try {
     const response = await fetch(`${BASE_PATH}/workouts.json`);
-    const workouts = await response.json();
+    allWorkouts = await response.json();
 
-    const listEl = document.getElementById('workout-list');
-    const countEl = document.getElementById('workout-count');
-
-    if (workouts.length === 0) {
-      listEl.innerHTML = '<div class="loading">No workouts available</div>';
-      countEl.textContent = '0 workouts';
+    if (allWorkouts.length === 0) {
+      document.getElementById('workout-list').innerHTML = '<div class="loading">No workouts available</div>';
+      document.getElementById('workout-count').textContent = '0 workouts';
       return;
     }
 
-    countEl.textContent = `${workouts.length} workout${workouts.length !== 1 ? 's' : ''}`;
-
-    listEl.innerHTML = workouts.map(w => `
-      <div class="workout-item" data-filename="${w.filename}">
-        <span class="workout-date">${w.date_display}</span>
-        <span class="workout-filename">${w.filename}</span>
-      </div>
-    `).join('');
-
-    // Add click handlers
-    listEl.querySelectorAll('.workout-item').forEach(item => {
-      item.addEventListener('click', () => selectWorkout(item.dataset.filename));
+    // Populate hill filter
+    const hills = [...new Set(allWorkouts.map(w => w.hill_id))];
+    const filterEl = document.getElementById('hill-filter');
+    hills.forEach(hillId => {
+      const hillName = allWorkouts.find(w => w.hill_id === hillId)?.hill_name || hillId;
+      const option = document.createElement('option');
+      option.value = hillId;
+      option.textContent = hillName;
+      filterEl.appendChild(option);
     });
 
+    // Filter change handler
+    filterEl.addEventListener('change', (e) => {
+      currentFilter = e.target.value;
+      renderWorkoutTable();
+    });
+
+    renderWorkoutTable();
+
     // Auto-select first workout
-    if (workouts.length > 0) {
-      selectWorkout(workouts[0].filename);
+    if (allWorkouts.length > 0) {
+      selectWorkout(allWorkouts[0].filename);
     }
 
   } catch (error) {
@@ -359,13 +402,61 @@ async function loadWorkouts() {
   }
 }
 
-async function selectWorkout(filename) {
-  // Update selection UI
-  document.querySelectorAll('.workout-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.filename === filename);
-  });
+function renderWorkoutTable() {
+  const filtered = currentFilter
+    ? allWorkouts.filter(w => w.hill_id === currentFilter)
+    : allWorkouts;
 
+  const listEl = document.getElementById('workout-list');
+  const countEl = document.getElementById('workout-count');
+
+  countEl.textContent = `${filtered.length} workout${filtered.length !== 1 ? 's' : ''}`;
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = '<div class="loading">No workouts match filter</div>';
+    return;
+  }
+
+  listEl.innerHTML = `
+    <table class="workout-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Hill</th>
+          <th style="text-align:center">Reps</th>
+          <th style="text-align:right">Total ↑</th>
+          <th style="text-align:right">Avg ↑</th>
+          <th style="text-align:right">Avg Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filtered.map(w => `
+          <tr data-filename="${w.filename}" class="${w.filename === selectedWorkout ? 'active' : ''}">
+            <td class="col-date">${w.date}</td>
+            <td class="col-hill">${w.hill_name}</td>
+            <td class="col-reps">${w.num_reps}</td>
+            <td class="col-elev">${w.total_elevation}m</td>
+            <td class="col-avg-elev">${w.avg_elevation}m</td>
+            <td class="col-avg-time">${fmtTime(w.avg_rep_time)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+
+  // Add click handlers
+  listEl.querySelectorAll('tbody tr').forEach(row => {
+    row.addEventListener('click', () => selectWorkout(row.dataset.filename));
+  });
+}
+
+async function selectWorkout(filename) {
   selectedWorkout = filename;
+
+  // Update selection UI
+  document.querySelectorAll('.workout-table tbody tr').forEach(row => {
+    row.classList.toggle('active', row.dataset.filename === filename);
+  });
 
   // Hide placeholder, show loading state
   document.getElementById('placeholder').style.display = 'none';

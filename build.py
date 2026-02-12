@@ -46,24 +46,35 @@ def build():
         print(f"  Processing {filename}...")
 
         try:
-            # Get summary for workout list
-            summary = get_workout_summary(path)
-            workouts.append(summary)
-
-            # Run full analysis and save as JSON
+            # Run full analysis
             data = analyze_fit(path)
+
+            # Save analysis as JSON
             json_filename = filename.rsplit(".", 1)[0] + ".json"
             json_path = os.path.join(DATA_DIR, json_filename)
             with open(json_path, "w") as f:
                 json.dump(data, f)
 
-            print(f"    → {len(data['reps'])} reps detected")
+            # Extract summary for workout list
+            workouts.append({
+                "filename": filename,
+                "date": data["workout_date"],
+                "date_sort": get_workout_summary(path)["date"],  # ISO format for sorting
+                "hill_id": data["hill"]["id"],
+                "hill_name": data["hill"]["name"],
+                "num_reps": data["summary"]["num_reps"],
+                "total_elevation": data["summary"]["total_elevation"],
+                "avg_elevation": data["summary"]["avg_elevation"],
+                "avg_rep_time": data["summary"]["avg_rep_time"],
+            })
+
+            print(f"    → {data['summary']['num_reps']} reps @ {data['hill']['name']}")
 
         except Exception as e:
             print(f"    ✗ Error: {e}")
 
     # Sort workouts by date (newest first)
-    workouts.sort(key=lambda w: w["date"], reverse=True)
+    workouts.sort(key=lambda w: w["date_sort"], reverse=True)
 
     # Write workouts list
     workouts_path = os.path.join(DIST_DIR, "workouts.json")

@@ -33,9 +33,27 @@ import pandas as pd
 from scipy.signal import find_peaks, savgol_filter
 
 
-# ── Staircase bottom GPS coordinates (update these for a different staircase) ──
-BOTTOM_LAT = 50.983862
-BOTTOM_LON = 5.048131
+# ── Hill configurations ──
+# Each hill has a name and the GPS coordinates of its bottom point
+HILLS = [
+    {
+        "id": "trappen-citadel-diest",
+        "name": "Trappen Citadel Diest",
+        "lat": 50.983862,
+        "lon": 5.048131,
+    },
+    # Add more hills here in the future:
+    # {
+    #     "id": "another-hill",
+    #     "name": "Another Hill Name",
+    #     "lat": 51.123456,
+    #     "lon": 4.567890,
+    # },
+]
+
+# Default hill (for backward compatibility)
+BOTTOM_LAT = HILLS[0]["lat"]
+BOTTOM_LON = HILLS[0]["lon"]
 
 
 def haversine_m(lat1, lon1, lat2, lon2):
@@ -206,25 +224,77 @@ def generate_html(template_path, data, output_path):
         f.write(html)
 
 
-def analyze_fit(path):
+def detect_hill(df, saw_start, saw_end):
+    """
+    Detect which hill was used in this workout by finding which hill's
+    bottom coordinates have the closest GPS passes.
+
+    Returns the hill dict.
+    """
+    best_hill = None
+    best_passes = 0
+
+    for hill in HILLS:
+        df["dist_to_bottom"] = haversine_m(
+            df["lat"].values, df["lon"].values, hill["lat"], hill["lon"]
+        )
+        try:
+            find_gps_passes(df, saw_start, saw_end, max_dist_m=10)
+            # Count passes near the bottom
+            dist = df["dist_to_bottom"].values[saw_start:saw_end + 1]
+            passes_local, _ = find_peaks(-dist, distance=15, prominence=5)
+            passes_global = passes_local + saw_start
+            close_passes = len([p for p in passes_global if df["dist_to_bottom"].iloc[p] < 10])
+
+            if close_passes > best_passes:
+                best_passes = close_passes
+                best_hill = hill
+        except ValueError:
+            continue
+
+    if best_hill is None:
+        # Fall back to first hill if none detected
+        best_hill = HILLS[0]
+
+    return best_hill
+
+
+def analyze_fit(path, hill=None):
     """
     Run full analysis on a FIT file and return the data dict.
 
     This is the main entry point for programmatic use (e.g., from a web server).
     Returns the same data structure that would be written to JSON by the CLI.
+
+    Args:
+        path: Path to the FIT file
+        hill: Optional hill dict to use. If None, auto-detects the hill.
     """
     df = parse_fit(path)
     alt = df["enhanced_altitude"].values
-    df["dist_to_bottom"] = haversine_m(df["lat"].values, df["lon"].values, BOTTOM_LAT, BOTTOM_LON)
-
     alt_smooth = savgol_filter(alt, window_length=15, polyorder=2)
     saw_start, saw_end = detect_sawtooth_region(alt_smooth)
+
+    # Auto-detect hill if not specified
+    if hill is None:
+        hill = detect_hill(df, saw_start, saw_end)
+
+    # Use the detected/specified hill's coordinates
+    df["dist_to_bottom"] = haversine_m(
+        df["lat"].values, df["lon"].values, hill["lat"], hill["lon"]
+    )
+
     gps_first, gps_last = find_gps_passes(df, saw_start, saw_end)
     valleys = find_elevation_valleys(alt, gps_first, gps_last)
 
     reps = compute_rep_stats(df, alt, valleys)
     chart, valley_markers = build_chart_data(df, alt, valleys, saw_start, saw_end)
     workout_date = df["timestamp"].iloc[0].strftime("%d %b %Y")
+
+    # Compute summary stats
+    total_elevation = sum(r["up_elev"] for r in reps)
+    avg_elevation = total_elevation / len(reps) if reps else 0
+    avg_rep_time = sum(r["full_dur_s"] for r in reps) / len(reps) if reps else 0
 
     return {
         "reps": reps,
@@ -233,6 +303,16 @@ def analyze_fit(path):
         "sawtooth_start_t": round(float(df["elapsed_seconds"].iloc[saw_start]), 1),
         "sawtooth_end_t": round(float(df["elapsed_seconds"].iloc[saw_end]), 1),
         "workout_date": workout_date,
+        "hill": {
+            "id": hill["id"],
+            "name": hill["name"],
+        },
+        "summary": {
+            "num_reps": len(reps),
+            "total_elevation": round(total_elevation, 1),
+            "avg_elevation": round(avg_elevation, 1),
+            "avg_rep_time": round(avg_rep_time, 0),
+        },
     }
 
 
