@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Everesting - Hill Rep Analysis</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0e14;
+    --surface: #14171f;
+    --surface2: #1a1e28;
+    --border: #252a38;
+    --text: #dfe2ed;
+    --text-dim: #6e7490;
+    --green: #2fcc7e;
+    --green-dim: rgba(47,204,126,0.10);
+    --red: #e85d5d;
+    --red-dim: rgba(232,93,93,0.10);
+    --blue: #5a9cf5;
+    --orange: #f0993e;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1.5rem 3rem;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+
+  header { margin-bottom: 1.8rem; }
+  h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1.1; }
+  h1 .a { color: var(--green); }
+  .meta { color: var(--text-dim); font-size: 0.82rem; font-weight: 300; margin-top: 0.35rem; }
+
+  /* Workout selector */
+  .workout-selector {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 1.8rem;
+    overflow: hidden;
+  }
+  .selector-header {
+    padding: 0.85rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .selector-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .workout-count {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+  }
+  .workout-list {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .workout-item {
+    display: flex;
+    align-items: center;
+    padding: 0.65rem 1.1rem;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    transition: background 0.15s;
+  }
+  .workout-item:last-child { border-bottom: none; }
+  .workout-item:hover { background: var(--surface2); }
+  .workout-item.active { background: var(--green-dim); border-left: 3px solid var(--green); }
+  .workout-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--green);
+    min-width: 100px;
+  }
+  .workout-filename {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-left: 1rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .workout-item.active .workout-filename { color: var(--text); }
+
+  /* Placeholder */
+  .placeholder {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4rem 2rem;
+    text-align: center;
+    margin-bottom: 1.8rem;
+  }
+  .placeholder-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.3;
+  }
+  .placeholder-text {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+
+  /* Loading state */
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    color: var(--text-dim);
+  }
+  .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--green);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 0.75rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Analysis content (hidden by default) */
+  #analysis-content { display: none; }
+  #analysis-content.visible { display: block; }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+    gap: 0.55rem;
+    margin-bottom: 1.8rem;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.85rem 0.95rem;
+  }
+  .card-l { font-size: 0.63rem; font-weight: 400; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 0.2rem; }
+  .card-v { font-family: 'DM Mono', monospace; font-size: 1.4rem; font-weight: 500; }
+  .card-v.g { color: var(--green); }
+  .card-v.r { color: var(--red); }
+  .card-v.b { color: var(--blue); }
+  .card-v.o { color: var(--orange); }
+  .card-u { font-size: 0.68rem; color: var(--text-dim); font-family: 'Outfit', sans-serif; }
+
+  .chart-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.1rem 1.1rem 0.7rem;
+    margin-bottom: 1.8rem;
+  }
+  .stitle { font-size: 0.7rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.6rem; }
+  canvas#chart { width: 100%; height: 200px; display: block; }
+
+  .tabs { display: flex; gap: 0.35rem; margin-bottom: 1.1rem; }
+  .tab {
+    padding: 0.45rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .tab.active { background: var(--surface2); color: var(--text); border-color: var(--green); }
+  .tab:hover:not(.active) { background: var(--surface2); }
+  .tc { display: none; }
+  .tc.active { display: block; }
+
+  .tbox {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .thead { padding: 0.85rem 1.1rem 0.4rem; display: flex; align-items: center; gap: 0.55rem; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot.up { background: var(--green); }
+  .dot.dn { background: var(--red); }
+  .dot.full { background: var(--blue); }
+  .thead .lbl { font-size: 0.72rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .tw { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; white-space: nowrap; }
+  thead th {
+    text-align: left; padding: 0.5rem 0.7rem; font-weight: 600; font-size: 0.63rem;
+    text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim);
+    border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0;
+  }
+  thead th:first-child { padding-left: 1.1rem; }
+  tbody td {
+    padding: 0.42rem 0.7rem; font-family: 'DM Mono', monospace; font-size: 0.76rem;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  tbody td:first-child { padding-left: 1.1rem; font-weight: 500; }
+  tbody tr:hover { background: var(--surface2); }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .ec { display: flex; align-items: center; gap: 5px; }
+  .ea { font-size: 0.62rem; }
+  .ea.up { color: var(--green); }
+  .ea.dn { color: var(--red); }
+  .ed { color: var(--text-dim); font-size: 0.68rem; }
+
+  .hr-b { display: inline-block; width: 30px; height: 5px; border-radius: 3px; vertical-align: middle; margin-right: 5px; }
+
+  tbody tr.summary td {
+    border-top: 1px solid var(--border);
+    font-weight: 600;
+    color: var(--text-dim);
+    font-size: 0.72rem;
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+  }
+  tbody tr.summary td:first-child { color: var(--text-dim); }
+
+  .error-box {
+    background: var(--red-dim);
+    border: 1px solid var(--red);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.8rem;
+    color: var(--red);
+  }
+  .error-box strong { display: block; margin-bottom: 0.5rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Hill Rep <span class="a">Analysis</span></h1>
+    <div class="meta">GPS-bounded, elevation-valley rep detection</div>
+  </header>
+
+  <!-- Workout Selector -->
+  <div class="workout-selector">
+    <div class="selector-header">
+      <span class="selector-title">Select a Workout</span>
+      <span class="workout-count" id="workout-count"></span>
+    </div>
+    <div class="workout-list" id="workout-list">
+      <div class="loading">
+        <div class="spinner"></div>
+        Loading workouts...
+      </div>
+    </div>
+  </div>
+
+  <!-- Placeholder when no workout selected -->
+  <div id="placeholder" class="placeholder">
+    <div class="placeholder-icon">&#x1F3D4;</div>
+    <div class="placeholder-text">Select a workout above to view analysis</div>
+  </div>
+
+  <!-- Error display -->
+  <div id="error-box" class="error-box" style="display:none;">
+    <strong>Error</strong>
+    <span id="error-message"></span>
+  </div>
+
+  <!-- Analysis Content (hidden until workout selected) -->
+  <div id="analysis-content">
+    <div class="cards" id="cards"></div>
+
+    <div class="chart-box">
+      <div class="stitle">Elevation Profile (raw)</div>
+      <canvas id="chart"></canvas>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="full">Full Rep</div>
+      <div class="tab" data-tab="up">Uphill</div>
+      <div class="tab" data-tab="dn">Downhill</div>
+    </div>
+
+    <div id="tab-full" class="tc active"></div>
+    <div id="tab-up" class="tc"></div>
+    <div id="tab-dn" class="tc"></div>
+  </div>
+</div>
+
+<script>
+// Base path for static files (works with GitHub Pages subdirectories)
+// Handles both /everesting/ and /everesting/index.html
+function getBasePath() {
+  let path = window.location.pathname;
+  // Remove trailing index.html if present
+  path = path.replace(/\/index\.html$/, '');
+  // Remove trailing slash
+  path = path.replace(/\/$/, '');
+  return path;
+}
+const BASE_PATH = getBasePath();
+
+let D = null;
+let R = [];
+let selectedWorkout = null;
+
+const sum = (arr) => arr.reduce((a,b) => a+b, 0);
+const avg = (arr) => arr.length ? sum(arr) / arr.length : 0;
+
+function fmtDurFromS(s) {
+  return `${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,'0')}`;
+}
+
+// Load workout list on page load
+async function loadWorkouts() {
+  try {
+    const response = await fetch(`${BASE_PATH}/workouts.json`);
+    const workouts = await response.json();
+
+    const listEl = document.getElementById('workout-list');
+    const countEl = document.getElementById('workout-count');
+
+    if (workouts.length === 0) {
+      listEl.innerHTML = '<div class="loading">No workouts available</div>';
+      countEl.textContent = '0 workouts';
+      return;
+    }
+
+    countEl.textContent = `${workouts.length} workout${workouts.length !== 1 ? 's' : ''}`;
+
+    listEl.innerHTML = workouts.map(w => `
+      <div class="workout-item" data-filename="${w.filename}">
+        <span class="workout-date">${w.date_display}</span>
+        <span class="workout-filename">${w.filename}</span>
+      </div>
+    `).join('');
+
+    // Add click handlers
+    listEl.querySelectorAll('.workout-item').forEach(item => {
+      item.addEventListener('click', () => selectWorkout(item.dataset.filename));
+    });
+
+    // Auto-select first workout
+    if (workouts.length > 0) {
+      selectWorkout(workouts[0].filename);
+    }
+
+  } catch (error) {
+    document.getElementById('workout-list').innerHTML =
+      `<div class="loading" style="color: var(--red)">Error loading workouts: ${error.message}</div>`;
+  }
+}
+
+async function selectWorkout(filename) {
+  // Update selection UI
+  document.querySelectorAll('.workout-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.filename === filename);
+  });
+
+  selectedWorkout = filename;
+
+  // Hide placeholder, show loading state
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('error-box').style.display = 'none';
+  document.getElementById('analysis-content').classList.remove('visible');
+  document.getElementById('cards').innerHTML = '<div class="loading"><div class="spinner"></div>Loading analysis...</div>';
+  document.getElementById('analysis-content').classList.add('visible');
+
+  try {
+    // Convert filename.fit to filename.json
+    const jsonFilename = filename.rsplit ? filename.rsplit('.', 1)[0] + '.json' : filename.replace(/\.[^.]+$/, '.json');
+    const response = await fetch(`${BASE_PATH}/data/${jsonFilename}`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to load analysis data`);
+    }
+
+    const data = await response.json();
+
+    D = data;
+    R = D.reps;
+    renderAnalysis();
+
+  } catch (error) {
+    document.getElementById('analysis-content').classList.remove('visible');
+    document.getElementById('error-box').style.display = 'block';
+    document.getElementById('error-message').textContent = error.message;
+  }
+}
+
+function renderAnalysis() {
+  const N = R.length;
+
+  const avgUpElev = avg(R.map(r=>r.up_elev)).toFixed(1);
+  const avgDnElev = avg(R.map(r=>r.dn_elev)).toFixed(1);
+  const avgFullDur = Math.round(avg(R.map(r=>r.full_dur_s)));
+  const avgUpDur = Math.round(avg(R.map(r=>r.up_dur_s)));
+  const avgDnDur = Math.round(avg(R.map(r=>r.dn_dur_s)));
+  const avgFullDist = avg(R.map(r=>r.full_dist)).toFixed(1);
+  const avgHR = Math.round(avg(R.map(r=>r.full_hr)));
+  const totalUpElev = sum(R.map(r=>r.up_elev)).toFixed(0);
+
+  document.getElementById('cards').innerHTML = [
+    {l:'Reps',v:N,u:'',c:'g'},
+    {l:'Total ↑ Elevation',v:totalUpElev,u:'m',c:'g'},
+    {l:'Avg ↑ Gain',v:avgUpElev,u:'m',c:'g'},
+    {l:'Avg ↓ Loss',v:avgDnElev,u:'m',c:'r'},
+    {l:'Avg Rep Time',v:avgFullDur,u:'s',c:'b'},
+    {l:'Avg ↑ Time',v:avgUpDur,u:'s',c:'g'},
+    {l:'Avg ↓ Time',v:avgDnDur,u:'s',c:'r'},
+    {l:'Avg HR',v:avgHR,u:'bpm',c:'o'},
+  ].map(c=>`<div class="card"><div class="card-l">${c.l}</div><div class="card-v ${c.c}">${c.v} <span class="card-u">${c.u}</span></div></div>`).join('');
+
+  const allHR = R.flatMap(r=>[r.up_hr, r.dn_hr]);
+  const hrMin=Math.min(...allHR), hrMax=Math.max(...allHR);
+  const hrc = hr => { const p=(hr-hrMin)/(hrMax-hrMin+1); return `hsl(${(1-p)*140},62%,50%)`; };
+  const hrC = hr => `<span class="hr-b" style="background:${hrc(hr)}"></span>${hr}`;
+
+  const elC = (s,e,g,dir) => `<div class="ec"><span class="ea ${dir}">${dir==='up'?'▲':'▼'}</span>${g.toFixed(1)}m<span class="ed">(${s.toFixed(1)} → ${e.toFixed(1)})</span></div>`;
+
+  function buildT(id, dc, title, cols, rowFn, summaryFn) {
+    const el = document.getElementById(id);
+    el.innerHTML = `<div class="tbox">
+      <div class="thead"><span class="dot ${dc}"></span><span class="lbl">${title}</span></div>
+      <div class="tw"><table>
+        <thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+        <tbody>${R.map(rowFn).join('')}${summaryFn ? summaryFn() : ''}</tbody>
+      </table></div>
+    </div>`;
+  }
+
+  buildT('tab-full', 'full', 'Full Repetition (uphill + downhill)',
+    ['#','↑ Elevation','↓ Elevation','Duration','↑ Time','↓ Time','Distance','Avg HR'],
+    r => `<tr>
+      <td>${r.rep}</td>
+      <td>${elC(r.up_alt_start,r.up_alt_end,r.up_elev,'up')}</td>
+      <td>${elC(r.dn_alt_start,r.dn_alt_end,r.dn_elev,'dn')}</td>
+      <td>${r.full_dur}</td>
+      <td>${r.up_dur}</td>
+      <td>${r.dn_dur}</td>
+      <td>${r.full_dist} m</td>
+      <td>${hrC(r.full_hr)}</td>
+    </tr>`,
+    () => `<tr class="summary">
+      <td>AVG</td>
+      <td>${avgUpElev} m</td>
+      <td>${avgDnElev} m</td>
+      <td>${fmtDurFromS(avgFullDur)}</td>
+      <td>${fmtDurFromS(avgUpDur)}</td>
+      <td>${fmtDurFromS(avgDnDur)}</td>
+      <td>${avgFullDist} m</td>
+      <td>${avgHR} bpm</td>
+    </tr>`
+  );
+
+  const avgUpDist = avg(R.map(r=>r.up_dist)).toFixed(1);
+  const avgUpHR = Math.round(avg(R.map(r=>r.up_hr)));
+  buildT('tab-up', 'up', 'Uphill Segment (bottom → top)',
+    ['#','Elevation','Duration','Distance','Avg HR','Pace /km'],
+    r => `<tr>
+      <td>${r.rep}</td>
+      <td>${elC(r.up_alt_start,r.up_alt_end,r.up_elev,'up')}</td>
+      <td>${r.up_dur}</td>
+      <td>${r.up_dist} m</td>
+      <td>${hrC(r.up_hr)}</td>
+      <td>${r.up_pace}</td>
+    </tr>`,
+    () => `<tr class="summary">
+      <td>AVG</td>
+      <td>${avgUpElev} m</td>
+      <td>${fmtDurFromS(avgUpDur)}</td>
+      <td>${avgUpDist} m</td>
+      <td>${avgUpHR} bpm</td>
+      <td>—</td>
+    </tr>`
+  );
+
+  const avgDnDist = avg(R.map(r=>r.dn_dist)).toFixed(1);
+  const avgDnHR = Math.round(avg(R.map(r=>r.dn_hr)));
+  buildT('tab-dn', 'dn', 'Downhill Segment (top → bottom)',
+    ['#','Elevation','Duration','Distance','Avg HR','Pace /km'],
+    r => `<tr>
+      <td>${r.rep}</td>
+      <td>${elC(r.dn_alt_start,r.dn_alt_end,r.dn_elev,'dn')}</td>
+      <td>${r.dn_dur}</td>
+      <td>${r.dn_dist} m</td>
+      <td>${hrC(r.dn_hr)}</td>
+      <td>${r.dn_pace}</td>
+    </tr>`,
+    () => `<tr class="summary">
+      <td>AVG</td>
+      <td>${avgDnElev} m</td>
+      <td>${fmtDurFromS(avgDnDur)}</td>
+      <td>${avgDnDist} m</td>
+      <td>${avgDnHR} bpm</td>
+      <td>—</td>
+    </tr>`
+  );
+
+  drawChart();
+}
+
+function drawChart() {
+  const canvas = document.getElementById('chart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const cD = D.chart;
+
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width*dpr; canvas.height = rect.height*dpr;
+  ctx.scale(dpr,dpr);
+  const W=rect.width, H=rect.height;
+  const p={t:8,r:12,b:26,l:40};
+  const cw=W-p.l-p.r, ch=H-p.t-p.b;
+  const tMin=cD[0].t, tMax=cD[cD.length-1].t;
+  const aArr=cD.map(d=>d.a);
+  const aMin=Math.min(...aArr)-1, aMax=Math.max(...aArr)+1;
+  const x=t=>p.l+(t-tMin)/(tMax-tMin)*cw;
+  const y=a=>p.t+ch-(a-aMin)/(aMax-aMin)*ch;
+
+  ctx.fillStyle='rgba(47,204,126,0.03)';
+  ctx.fillRect(x(D.sawtooth_start_t),p.t,x(D.sawtooth_end_t)-x(D.sawtooth_start_t),ch);
+
+  ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+  for(let a=Math.ceil(aMin/5)*5;a<=aMax;a+=5){
+    ctx.beginPath();ctx.moveTo(p.l,y(a));ctx.lineTo(W-p.r,y(a));ctx.stroke();
+    ctx.fillStyle='#444';ctx.font='9px DM Mono';ctx.textAlign='right';
+    ctx.fillText(a+'m',p.l-5,y(a)+3);
+  }
+  for(let t=0;t<=tMax;t+=300){
+    ctx.fillStyle='#444';ctx.font='9px DM Mono';ctx.textAlign='center';
+    ctx.fillText(Math.round(t/60)+'min',x(t),H-p.b+14);
+  }
+
+  const gr=ctx.createLinearGradient(0,p.t,0,p.t+ch);
+  gr.addColorStop(0,'rgba(47,204,126,0.22)');gr.addColorStop(1,'rgba(47,204,126,0)');
+  ctx.beginPath();ctx.moveTo(x(cD[0].t),y(cD[0].a));
+  cD.forEach(d=>ctx.lineTo(x(d.t),y(d.a)));
+  ctx.lineTo(x(cD[cD.length-1].t),p.t+ch);
+  ctx.lineTo(x(cD[0].t),p.t+ch);ctx.closePath();
+  ctx.fillStyle=gr;ctx.fill();
+
+  ctx.beginPath();ctx.moveTo(x(cD[0].t),y(cD[0].a));
+  cD.forEach(d=>ctx.lineTo(x(d.t),y(d.a)));
+  ctx.strokeStyle='#2fcc7e';ctx.lineWidth=1.3;ctx.stroke();
+
+  D.valleys.forEach(v=>{
+    ctx.beginPath();ctx.arc(x(v.t),y(v.a),2.5,0,Math.PI*2);
+    ctx.fillStyle='rgba(47,204,126,0.65)';ctx.fill();
+  });
+}
+
+// Tab switching
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.tc').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('tab-'+t.dataset.tab).classList.add('active');
+  });
+});
+
+// Redraw chart on resize
+window.addEventListener('resize', () => {
+  if (D) drawChart();
+});
+
+// Initialize
+loadWorkouts();
+</script>
+</body>
+</html>
