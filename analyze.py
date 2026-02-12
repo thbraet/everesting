@@ -65,8 +65,73 @@ def haversine_m(lat1, lon1, lat2, lon2):
     return 2 * R * np.arcsin(np.sqrt(a))
 
 
+def parse_timer_events(fitfile):
+    """
+    Extract timer start/stop events to identify paused periods.
+
+    Returns a list of (pause_start, pause_end) datetime tuples.
+    """
+    events = []
+    for record in fitfile.get_messages("event"):
+        fields = {f.name: f.value for f in record.fields}
+        if fields.get("event") == "timer" and fields.get("timer_trigger") == "manual":
+            events.append({
+                "timestamp": fields["timestamp"],
+                "type": fields["event_type"],
+            })
+
+    # Find pause periods (stop_all -> start)
+    pauses = []
+    pause_start = None
+    for event in events:
+        if event["type"] == "stop_all":
+            pause_start = event["timestamp"]
+        elif event["type"] == "start" and pause_start is not None:
+            pauses.append((pause_start, event["timestamp"]))
+            pause_start = None
+
+    return pauses
+
+
+def calculate_elapsed_excluding_pauses(timestamps, pauses):
+    """
+    Calculate elapsed seconds excluding paused periods.
+
+    For each timestamp, compute how much time has passed since the start,
+    minus any pause duration that occurred before that timestamp.
+    """
+    if len(timestamps) == 0:
+        return []
+
+    start_time = timestamps.iloc[0]
+    elapsed = []
+
+    for ts in timestamps:
+        # Total time since start
+        total = (ts - start_time).total_seconds()
+
+        # Subtract pause durations that occurred before this timestamp
+        for pause_start, pause_end in pauses:
+            if pause_end <= ts:
+                # Full pause occurred before this point
+                total -= (pause_end - pause_start).total_seconds()
+            elif pause_start < ts < pause_end:
+                # We're currently in a pause (shouldn't happen with clean data)
+                total -= (ts - pause_start).total_seconds()
+
+        elapsed.append(total)
+
+    return elapsed
+
+
 def parse_fit(path):
     """Read a .fit file and return a DataFrame with the fields we need."""
+    fitfile = fitparse.FitFile(path)
+
+    # First, get pause periods
+    pauses = parse_timer_events(fitfile)
+
+    # Re-parse to get records (generator was consumed)
     fitfile = fitparse.FitFile(path)
     rows = []
     for record in fitfile.get_messages("record"):
@@ -77,7 +142,10 @@ def parse_fit(path):
 
     df = pd.DataFrame(rows)
     df["timestamp"] = pd.to_datetime(df["timestamp"])
-    df["elapsed_seconds"] = (df["timestamp"] - df["timestamp"].iloc[0]).dt.total_seconds()
+
+    # Calculate elapsed time excluding pauses
+    df["elapsed_seconds"] = calculate_elapsed_excluding_pauses(df["timestamp"], pauses)
+
     df["lat"] = df["position_lat"] * (180 / 2**31)
     df["lon"] = df["position_long"] * (180 / 2**31)
     return df
@@ -154,30 +222,33 @@ def fmt_pace(dist_m, dur_s):
 
 
 def compute_rep_stats(df, alt, valleys):
-    """Compute per-rep statistics given valley boundary indices."""
+    """Compute per-rep statistics given valley boundary indices.
+
+    Uses elapsed_seconds which already has pause time excluded.
+    """
     reps = []
     for i in range(len(valleys) - 1):
         si, ei = valleys[i], valleys[i + 1]
         seg_alt = alt[si : ei + 1]
         pi = si + int(np.argmax(seg_alt))
 
-        # Uphill
+        # Uphill (use elapsed_seconds which excludes pauses)
         up = df.iloc[si : pi + 1]
         ua_s, ua_e = float(alt[si]), float(alt[pi])
-        u_dur = (up["timestamp"].iloc[-1] - up["timestamp"].iloc[0]).total_seconds()
+        u_dur = float(up["elapsed_seconds"].iloc[-1] - up["elapsed_seconds"].iloc[0])
         u_dist = float(up["distance"].iloc[-1] - up["distance"].iloc[0])
         u_hr = float(up["heart_rate"].mean())
 
         # Downhill
         dn = df.iloc[pi : ei + 1]
         da_s, da_e = float(alt[pi]), float(alt[ei])
-        d_dur = (dn["timestamp"].iloc[-1] - dn["timestamp"].iloc[0]).total_seconds()
+        d_dur = float(dn["elapsed_seconds"].iloc[-1] - dn["elapsed_seconds"].iloc[0])
         d_dist = float(dn["distance"].iloc[-1] - dn["distance"].iloc[0])
         d_hr = float(dn["heart_rate"].mean())
 
         # Full rep
         seg = df.iloc[si : ei + 1]
-        f_dur = (seg["timestamp"].iloc[-1] - seg["timestamp"].iloc[0]).total_seconds()
+        f_dur = float(seg["elapsed_seconds"].iloc[-1] - seg["elapsed_seconds"].iloc[0])
         f_dist = float(seg["distance"].iloc[-1] - seg["distance"].iloc[0])
         f_hr = float(seg["heart_rate"].mean())
 
