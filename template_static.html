@@ -360,10 +360,13 @@ function fmtTime(seconds) {
   return `${Math.floor(seconds/60)}:${String(Math.round(seconds%60)).padStart(2,'0')}`;
 }
 
+// Cache buster to ensure fresh data after deployments
+const CACHE_BUSTER = 'v2';
+
 // Load workout list on page load
 async function loadWorkouts() {
   try {
-    const response = await fetch(`${BASE_PATH}/workouts.json`);
+    const response = await fetch(`${BASE_PATH}/workouts.json?${CACHE_BUSTER}`);
     allWorkouts = await response.json();
 
     if (allWorkouts.length === 0) {
@@ -467,8 +470,8 @@ async function selectWorkout(filename) {
 
   try {
     // Convert filename.fit to filename.json
-    const jsonFilename = filename.rsplit ? filename.rsplit('.', 1)[0] + '.json' : filename.replace(/\.[^.]+$/, '.json');
-    const response = await fetch(`${BASE_PATH}/data/${jsonFilename}`);
+    const jsonFilename = filename.replace(/\.[^.]+$/, '.json');
+    const response = await fetch(`${BASE_PATH}/data/${jsonFilename}?${CACHE_BUSTER}`);
 
     if (!response.ok) {
       throw new Error(`Failed to load analysis data`);
