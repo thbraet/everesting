@@ -41,7 +41,7 @@ def build():
 
     # Process each workout
     workouts = []
-    skipped = 0
+    errors = 0
     for filename in fit_files:
         path = os.path.join(FIT_DIR, filename)
         print(f"  Processing {filename}...")
@@ -50,17 +50,13 @@ def build():
             # Run full analysis
             data = analyze_fit(path)
 
-            # Skip workouts with no valid reps (not a hill rep workout)
-            if data["summary"]["num_reps"] == 0:
-                print(f"    → Skipped (no valid hill reps detected)")
-                skipped += 1
-                continue
-
-            # Save analysis as JSON
+            # Save analysis as JSON (even if 0 reps, for workout stats)
             json_filename = filename.rsplit(".", 1)[0] + ".json"
             json_path = os.path.join(DATA_DIR, json_filename)
             with open(json_path, "w") as f:
                 json.dump(data, f)
+
+            summary = data["summary"]
 
             # Extract summary for workout list
             workouts.append({
@@ -69,17 +65,25 @@ def build():
                 "date_sort": get_workout_summary(path)["date"],  # ISO format for sorting
                 "hill_id": data["hill"]["id"],
                 "hill_name": data["hill"]["name"],
-                "num_reps": data["summary"]["num_reps"],
-                "total_elevation": data["summary"]["total_elevation"],
-                "avg_elevation": data["summary"]["avg_elevation"],
-                "avg_rep_time": data["summary"]["avg_rep_time"],
+                # Rep stats (may be None/0 if no reps)
+                "num_reps": summary["num_reps"],
+                "rep_total_elevation": summary["rep_total_elevation"],
+                "avg_elevation": summary["avg_elevation"],
+                "avg_rep_time": summary["avg_rep_time"],
+                # Workout stats
+                "workout_duration": summary["workout_duration"],
+                "workout_distance": summary["workout_distance"],
+                "workout_total_ascent": summary["workout_total_ascent"],
             })
 
-            print(f"    → {data['summary']['num_reps']} reps @ {data['hill']['name']}")
+            if summary["num_reps"] > 0:
+                print(f"    → {summary['num_reps']} reps @ {data['hill']['name']}")
+            else:
+                print(f"    → No hill reps (workout only)")
 
         except Exception as e:
-            print(f"    ✗ Skipped: {e}")
-            skipped += 1
+            print(f"    ✗ Error: {e}")
+            errors += 1
 
     # Sort workouts by date (newest first)
     workouts.sort(key=lambda w: w["date_sort"], reverse=True)
@@ -99,10 +103,11 @@ def build():
         f.write(html)
     print(f"HTML page: {html_path}")
 
+    reps_workouts = sum(1 for w in workouts if w["num_reps"] > 0)
     print(f"\n✓ Build complete! Output in {DIST_DIR}/")
-    print(f"  {len(workouts)} workouts with valid hill reps")
-    if skipped > 0:
-        print(f"  {skipped} files skipped (no valid reps or errors)")
+    print(f"  {len(workouts)} workouts total ({reps_workouts} with hill reps)")
+    if errors > 0:
+        print(f"  {errors} files failed to process")
     print(f"  To preview locally: cd {DIST_DIR} && python3 -m http.server 8000")
     print(f"  Then open: http://localhost:8000")
 

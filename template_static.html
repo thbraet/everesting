@@ -118,10 +118,17 @@
   .workout-table tbody tr:last-child td { border-bottom: none; }
   .workout-table .col-date { color: var(--green); min-width: 90px; }
   .workout-table .col-hill { color: var(--text); min-width: 140px; font-family: 'Outfit', sans-serif; }
-  .workout-table .col-reps { color: var(--blue); text-align: center; }
-  .workout-table .col-elev { color: var(--green); text-align: right; }
-  .workout-table .col-avg-elev { color: var(--text-dim); text-align: right; }
-  .workout-table .col-avg-time { color: var(--text-dim); text-align: right; }
+  /* Workout-level columns (neutral colors) */
+  .workout-table .col-workout { color: var(--text-dim); text-align: right; }
+  /* Rep-specific columns (highlighted with green tint) */
+  .workout-table .col-rep { text-align: center; }
+  .workout-table .col-rep-val { color: var(--green); text-align: right; }
+  .workout-table .col-rep-avg { color: var(--blue); text-align: right; }
+  /* Column group headers */
+  .workout-table thead th.group-workout { background: var(--surface); color: var(--text-dim); }
+  .workout-table thead th.group-rep { background: rgba(47,204,126,0.08); color: var(--green); }
+  .workout-table tbody td.no-reps { color: var(--text-dim); opacity: 0.5; }
+  .workout-table tbody tr.no-reps-row { opacity: 0.7; }
 
   /* Placeholder */
   .placeholder {
@@ -361,7 +368,7 @@ function fmtTime(seconds) {
 }
 
 // Cache buster to ensure fresh data after deployments
-const CACHE_BUSTER = 'v4';
+const CACHE_BUSTER = 'v5';
 
 // Load workout list on page load
 async function loadWorkouts() {
@@ -405,6 +412,22 @@ async function loadWorkouts() {
   }
 }
 
+function fmtDistance(meters) {
+  if (meters >= 1000) {
+    return `${(meters / 1000).toFixed(1)}km`;
+  }
+  return `${Math.round(meters)}m`;
+}
+
+function fmtDuration(seconds) {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  if (hrs > 0) {
+    return `${hrs}h${mins.toString().padStart(2, '0')}m`;
+  }
+  return `${mins}m`;
+}
+
 function renderWorkoutTable() {
   const filtered = currentFilter
     ? allWorkouts.filter(w => w.hill_id === currentFilter)
@@ -413,7 +436,8 @@ function renderWorkoutTable() {
   const listEl = document.getElementById('workout-list');
   const countEl = document.getElementById('workout-count');
 
-  countEl.textContent = `${filtered.length} workout${filtered.length !== 1 ? 's' : ''}`;
+  const repsCount = filtered.filter(w => w.num_reps > 0).length;
+  countEl.textContent = `${filtered.length} workouts (${repsCount} with reps)`;
 
   if (filtered.length === 0) {
     listEl.innerHTML = '<div class="loading">No workouts match filter</div>';
@@ -426,23 +450,33 @@ function renderWorkoutTable() {
         <tr>
           <th>Date</th>
           <th>Hill</th>
-          <th style="text-align:center">Reps</th>
-          <th style="text-align:right">Total ↑</th>
-          <th style="text-align:right">Avg ↑</th>
-          <th style="text-align:right">Avg Time</th>
+          <th class="group-workout" style="text-align:right">Duration</th>
+          <th class="group-workout" style="text-align:right">Distance</th>
+          <th class="group-workout" style="text-align:right">Total ↑</th>
+          <th class="group-rep" style="text-align:center">Reps</th>
+          <th class="group-rep" style="text-align:right">Reps ↑</th>
+          <th class="group-rep" style="text-align:right">Avg ↑</th>
+          <th class="group-rep" style="text-align:right">Avg Time</th>
         </tr>
       </thead>
       <tbody>
-        ${filtered.map(w => `
-          <tr data-filename="${w.filename}" class="${w.filename === selectedWorkout ? 'active' : ''}">
+        ${filtered.map(w => {
+          const hasReps = w.num_reps > 0;
+          const rowClass = hasReps ? '' : 'no-reps-row';
+          const activeClass = w.filename === selectedWorkout ? 'active' : '';
+          return `
+          <tr data-filename="${w.filename}" class="${rowClass} ${activeClass}">
             <td class="col-date">${w.date}</td>
             <td class="col-hill">${w.hill_name}</td>
-            <td class="col-reps">${w.num_reps}</td>
-            <td class="col-elev">${w.total_elevation}m</td>
-            <td class="col-avg-elev">${w.avg_elevation}m</td>
-            <td class="col-avg-time">${fmtTime(w.avg_rep_time)}</td>
+            <td class="col-workout">${fmtDuration(w.workout_duration)}</td>
+            <td class="col-workout">${fmtDistance(w.workout_distance)}</td>
+            <td class="col-workout">${w.workout_total_ascent}m</td>
+            <td class="col-rep">${w.num_reps}</td>
+            <td class="col-rep-val ${hasReps ? '' : 'no-reps'}">${hasReps ? w.rep_total_elevation + 'm' : '—'}</td>
+            <td class="col-rep-avg ${hasReps ? '' : 'no-reps'}">${hasReps ? w.avg_elevation + 'm' : '—'}</td>
+            <td class="col-rep-avg ${hasReps ? '' : 'no-reps'}">${hasReps ? fmtTime(w.avg_rep_time) : '—'}</td>
           </tr>
-        `).join('')}
+        `}).join('')}
       </tbody>
     </table>
   `;

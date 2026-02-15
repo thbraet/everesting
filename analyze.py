@@ -400,10 +400,18 @@ def analyze_fit(path, hill=None):
     chart, valley_markers = build_chart_data(df, alt, valleys, saw_start, saw_end)
     workout_date = df["timestamp"].iloc[0].strftime("%d %b %Y")
 
-    # Compute summary stats (only for valid reps)
-    total_elevation = sum(r["up_elev"] for r in reps)
-    avg_elevation = total_elevation / len(reps) if reps else 0
-    avg_rep_time = sum(r["full_dur_s"] for r in reps) / len(reps) if reps else 0
+    # Compute rep summary stats (only for valid reps)
+    rep_total_elevation = sum(r["up_elev"] for r in reps)
+    avg_elevation = rep_total_elevation / len(reps) if reps else None
+    avg_rep_time = sum(r["full_dur_s"] for r in reps) / len(reps) if reps else None
+
+    # Compute workout-level stats (full workout, not just reps)
+    workout_duration = float(df["elapsed_seconds"].iloc[-1])
+    workout_distance = float(df["distance"].iloc[-1] - df["distance"].iloc[0])
+
+    # Calculate total workout ascent (sum of all positive elevation changes)
+    alt_diff = np.diff(alt)
+    workout_total_ascent = float(np.sum(alt_diff[alt_diff > 0]))
 
     return {
         "reps": reps,
@@ -417,10 +425,15 @@ def analyze_fit(path, hill=None):
             "name": hill["name"],
         },
         "summary": {
+            # Rep stats
             "num_reps": len(reps),
-            "total_elevation": round(total_elevation, 1),
-            "avg_elevation": round(avg_elevation, 1),
-            "avg_rep_time": round(avg_rep_time, 0),
+            "rep_total_elevation": round(rep_total_elevation, 1),
+            "avg_elevation": round(avg_elevation, 1) if avg_elevation is not None else None,
+            "avg_rep_time": round(avg_rep_time, 0) if avg_rep_time is not None else None,
+            # Workout stats
+            "workout_duration": round(workout_duration, 0),
+            "workout_distance": round(workout_distance, 0),
+            "workout_total_ascent": round(workout_total_ascent, 1),
         },
     }
 
