@@ -22,3 +22,7 @@ Thumbs.db
 # Analysis output (old CLI format)
 *_reps.json
 *_reps.html
+
+# Strava credentials - NEVER commit these
+.env
+strava_tokens.json
