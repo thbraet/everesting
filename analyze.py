@@ -34,26 +34,32 @@ from scipy.signal import find_peaks, savgol_filter
 
 
 # ── Hill configurations ──
-# Each hill has a name and the GPS coordinates of its bottom point
+# Each hill has:
+#   - bottom_lat/bottom_lon: GPS coordinates of the bottom (start/end of rep)
+#   - top_lat/top_lon: GPS coordinates of the top (must pass by for valid rep)
 HILLS = [
     {
         "id": "trappen-citadel-diest",
         "name": "Trappen Citadel Diest",
-        "lat": 50.983862,
-        "lon": 5.048131,
+        "bottom_lat": 50.983862,
+        "bottom_lon": 5.048131,
+        "top_lat": 50.983525,
+        "top_lon": 5.048036,
     },
     # Add more hills here in the future:
     # {
     #     "id": "another-hill",
     #     "name": "Another Hill Name",
-    #     "lat": 51.123456,
-    #     "lon": 4.567890,
+    #     "bottom_lat": 51.123456,
+    #     "bottom_lon": 4.567890,
+    #     "top_lat": 51.123789,
+    #     "top_lon": 4.567123,
     # },
 ]
 
 # Default hill (for backward compatibility)
-BOTTOM_LAT = HILLS[0]["lat"]
-BOTTOM_LON = HILLS[0]["lon"]
+BOTTOM_LAT = HILLS[0]["bottom_lat"]
+BOTTOM_LON = HILLS[0]["bottom_lon"]
 
 
 def haversine_m(lat1, lon1, lat2, lon2):
@@ -307,7 +313,7 @@ def detect_hill(df, saw_start, saw_end):
 
     for hill in HILLS:
         df["dist_to_bottom"] = haversine_m(
-            df["lat"].values, df["lon"].values, hill["lat"], hill["lon"]
+            df["lat"].values, df["lon"].values, hill["bottom_lat"], hill["bottom_lon"]
         )
         try:
             find_gps_passes(df, saw_start, saw_end, max_dist_m=10)
@@ -330,6 +336,26 @@ def detect_hill(df, saw_start, saw_end):
     return best_hill
 
 
+def validate_rep_reaches_top(df, si, ei, hill, max_dist_m=15):
+    """
+    Check if a rep segment actually passes near the top of the hill.
+
+    A valid rep must get within max_dist_m meters of the top coordinates
+    at some point between the start index (si) and end index (ei).
+
+    Returns True if the rep passes by the top, False otherwise.
+    """
+    segment = df.iloc[si:ei + 1]
+    dist_to_top = haversine_m(
+        segment["lat"].values,
+        segment["lon"].values,
+        hill["top_lat"],
+        hill["top_lon"]
+    )
+    # Rep is valid if it gets within max_dist_m of the top at any point
+    return dist_to_top.min() < max_dist_m
+
+
 def analyze_fit(path, hill=None):
     """
     Run full analysis on a FIT file and return the data dict.
@@ -350,19 +376,31 @@ def analyze_fit(path, hill=None):
     if hill is None:
         hill = detect_hill(df, saw_start, saw_end)
 
-    # Use the detected/specified hill's coordinates
+    # Use the detected/specified hill's bottom coordinates
     df["dist_to_bottom"] = haversine_m(
-        df["lat"].values, df["lon"].values, hill["lat"], hill["lon"]
+        df["lat"].values, df["lon"].values, hill["bottom_lat"], hill["bottom_lon"]
     )
 
     gps_first, gps_last = find_gps_passes(df, saw_start, saw_end)
     valleys = find_elevation_valleys(alt, gps_first, gps_last)
 
-    reps = compute_rep_stats(df, alt, valleys)
+    # Compute stats for all detected rep segments
+    all_reps = compute_rep_stats(df, alt, valleys)
+
+    # Filter out reps that don't actually reach the top of the hill
+    reps = []
+    for rep in all_reps:
+        if validate_rep_reaches_top(df, rep["si"], rep["ei"], hill):
+            reps.append(rep)
+
+    # Re-number the valid reps
+    for i, rep in enumerate(reps):
+        rep["rep"] = i + 1
+
     chart, valley_markers = build_chart_data(df, alt, valleys, saw_start, saw_end)
     workout_date = df["timestamp"].iloc[0].strftime("%d %b %Y")
 
-    # Compute summary stats
+    # Compute summary stats (only for valid reps)
     total_elevation = sum(r["up_elev"] for r in reps)
     avg_elevation = total_elevation / len(reps) if reps else 0
     avg_rep_time = sum(r["full_dur_s"] for r in reps) / len(reps) if reps else 0

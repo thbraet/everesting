@@ -41,6 +41,7 @@ def build():
 
     # Process each workout
     workouts = []
+    skipped = 0
     for filename in fit_files:
         path = os.path.join(FIT_DIR, filename)
         print(f"  Processing {filename}...")
@@ -48,6 +49,12 @@ def build():
         try:
             # Run full analysis
             data = analyze_fit(path)
+
+            # Skip workouts with no valid reps (not a hill rep workout)
+            if data["summary"]["num_reps"] == 0:
+                print(f"    → Skipped (no valid hill reps detected)")
+                skipped += 1
+                continue
 
             # Save analysis as JSON
             json_filename = filename.rsplit(".", 1)[0] + ".json"
@@ -71,7 +78,8 @@ def build():
             print(f"    → {data['summary']['num_reps']} reps @ {data['hill']['name']}")
 
         except Exception as e:
-            print(f"    ✗ Error: {e}")
+            print(f"    ✗ Skipped: {e}")
+            skipped += 1
 
     # Sort workouts by date (newest first)
     workouts.sort(key=lambda w: w["date_sort"], reverse=True)
@@ -92,6 +100,9 @@ def build():
     print(f"HTML page: {html_path}")
 
     print(f"\n✓ Build complete! Output in {DIST_DIR}/")
+    print(f"  {len(workouts)} workouts with valid hill reps")
+    if skipped > 0:
+        print(f"  {skipped} files skipped (no valid reps or errors)")
     print(f"  To preview locally: cd {DIST_DIR} && python3 -m http.server 8000")
     print(f"  Then open: http://localhost:8000")
 
