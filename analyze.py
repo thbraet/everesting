@@ -363,62 +363,88 @@ def analyze_fit(path, hill=None):
     This is the main entry point for programmatic use (e.g., from a web server).
     Returns the same data structure that would be written to JSON by the CLI.
 
+    Always returns valid data - if hill rep detection fails, returns workout
+    stats with 0 reps instead of raising an exception.
+
     Args:
         path: Path to the FIT file
-        hill: Optional hill dict to use. If None, auto-detects the hill.
+        hill: Optional hill dict to use. If None, uses default hill.
     """
     df = parse_fit(path)
     alt = df["enhanced_altitude"].values
-    alt_smooth = savgol_filter(alt, window_length=15, polyorder=2)
-    saw_start, saw_end = detect_sawtooth_region(alt_smooth)
-
-    # Auto-detect hill if not specified
-    if hill is None:
-        hill = detect_hill(df, saw_start, saw_end)
-
-    # Use the detected/specified hill's bottom coordinates
-    df["dist_to_bottom"] = haversine_m(
-        df["lat"].values, df["lon"].values, hill["bottom_lat"], hill["bottom_lon"]
-    )
-
-    gps_first, gps_last = find_gps_passes(df, saw_start, saw_end)
-    valleys = find_elevation_valleys(alt, gps_first, gps_last)
-
-    # Compute stats for all detected rep segments
-    all_reps = compute_rep_stats(df, alt, valleys)
-
-    # Filter out reps that don't actually reach the top of the hill
-    reps = []
-    for rep in all_reps:
-        if validate_rep_reaches_top(df, rep["si"], rep["ei"], hill):
-            reps.append(rep)
-
-    # Re-number the valid reps
-    for i, rep in enumerate(reps):
-        rep["rep"] = i + 1
-
-    chart, valley_markers = build_chart_data(df, alt, valleys, saw_start, saw_end)
     workout_date = df["timestamp"].iloc[0].strftime("%d %b %Y")
+
+    # Compute workout-level stats (always available)
+    workout_duration = float(df["elapsed_seconds"].iloc[-1])
+    workout_distance = float(df["distance"].iloc[-1] - df["distance"].iloc[0])
+    alt_diff = np.diff(alt)
+    workout_total_ascent = float(np.sum(alt_diff[alt_diff > 0]))
+
+    # Default hill if not specified
+    if hill is None:
+        hill = HILLS[0]
+
+    # Try to detect hill reps - if any step fails, return workout with 0 reps
+    reps = []
+    chart = []
+    valley_markers = []
+    sawtooth_start_t = 0
+    sawtooth_end_t = 0
+
+    try:
+        alt_smooth = savgol_filter(alt, window_length=15, polyorder=2)
+        saw_start, saw_end = detect_sawtooth_region(alt_smooth)
+
+        # Try to detect which hill based on GPS passes
+        try:
+            detected_hill = detect_hill(df, saw_start, saw_end)
+            hill = detected_hill
+        except ValueError:
+            pass  # Keep default hill
+
+        # Use the hill's bottom coordinates
+        df["dist_to_bottom"] = haversine_m(
+            df["lat"].values, df["lon"].values, hill["bottom_lat"], hill["bottom_lon"]
+        )
+
+        gps_first, gps_last = find_gps_passes(df, saw_start, saw_end)
+        valleys = find_elevation_valleys(alt, gps_first, gps_last)
+
+        # Compute stats for all detected rep segments
+        all_reps = compute_rep_stats(df, alt, valleys)
+
+        # Filter out reps that don't actually reach the top of the hill
+        for rep in all_reps:
+            if validate_rep_reaches_top(df, rep["si"], rep["ei"], hill):
+                reps.append(rep)
+
+        # Re-number the valid reps
+        for i, rep in enumerate(reps):
+            rep["rep"] = i + 1
+
+        chart, valley_markers = build_chart_data(df, alt, valleys, saw_start, saw_end)
+        sawtooth_start_t = round(float(df["elapsed_seconds"].iloc[saw_start]), 1)
+        sawtooth_end_t = round(float(df["elapsed_seconds"].iloc[saw_end]), 1)
+
+    except (ValueError, IndexError):
+        # Hill rep detection failed - build basic chart without valleys
+        step = max(1, len(alt) // 600)
+        chart = [
+            {"t": round(float(df["elapsed_seconds"].iloc[i]), 1), "a": round(float(alt[i]), 1)}
+            for i in range(0, len(alt), step)
+        ]
 
     # Compute rep summary stats (only for valid reps)
     rep_total_elevation = sum(r["up_elev"] for r in reps)
     avg_elevation = rep_total_elevation / len(reps) if reps else None
     avg_rep_time = sum(r["full_dur_s"] for r in reps) / len(reps) if reps else None
 
-    # Compute workout-level stats (full workout, not just reps)
-    workout_duration = float(df["elapsed_seconds"].iloc[-1])
-    workout_distance = float(df["distance"].iloc[-1] - df["distance"].iloc[0])
-
-    # Calculate total workout ascent (sum of all positive elevation changes)
-    alt_diff = np.diff(alt)
-    workout_total_ascent = float(np.sum(alt_diff[alt_diff > 0]))
-
     return {
         "reps": reps,
         "chart": chart,
         "valleys": valley_markers,
-        "sawtooth_start_t": round(float(df["elapsed_seconds"].iloc[saw_start]), 1),
-        "sawtooth_end_t": round(float(df["elapsed_seconds"].iloc[saw_end]), 1),
+        "sawtooth_start_t": sawtooth_start_t,
+        "sawtooth_end_t": sawtooth_end_t,
         "workout_date": workout_date,
         "hill": {
             "id": hill["id"],
