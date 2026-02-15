@@ -18,11 +18,7 @@
     --red: #e85d5d;
     --red-dim: rgba(232,93,93,0.10);
     --blue: #5a9cf5;
-    --blue-dim: rgba(90,156,245,0.10);
     --orange: #f0993e;
-    --orange-dim: rgba(240,153,62,0.10);
-    --purple: #a78bfa;
-    --purple-dim: rgba(167,139,250,0.10);
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
@@ -34,40 +30,10 @@
   }
   .container { max-width: 1200px; margin: 0 auto; }
 
-  header { margin-bottom: 1.8rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
-  .header-left { }
+  header { margin-bottom: 1.8rem; }
   h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1.1; }
   h1 .a { color: var(--green); }
   .meta { color: var(--text-dim); font-size: 0.82rem; font-weight: 300; margin-top: 0.35rem; }
-
-  /* Data source toggle */
-  .source-toggle {
-    display: flex;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-  }
-  .source-btn {
-    padding: 0.6rem 1.2rem;
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
-    border: none;
-    background: transparent;
-    color: var(--text-dim);
-    transition: all 0.15s;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .source-btn:first-child { border-right: 1px solid var(--border); }
-  .source-btn.active { background: var(--surface2); color: var(--text); }
-  .source-btn.active.garmin { color: var(--orange); }
-  .source-btn.active.strava { color: var(--orange); }
-  .source-btn:hover:not(.active) { background: rgba(255,255,255,0.03); }
-  .source-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .source-icon { font-size: 1rem; }
 
   /* Workout selector */
   .workout-selector {
@@ -97,7 +63,7 @@
     font-family: 'DM Mono', monospace;
   }
   .workout-list {
-    max-height: 240px;
+    max-height: 200px;
     overflow-y: auto;
   }
   .workout-item {
@@ -111,40 +77,21 @@
   .workout-item:last-child { border-bottom: none; }
   .workout-item:hover { background: var(--surface2); }
   .workout-item.active { background: var(--green-dim); border-left: 3px solid var(--green); }
-  .workout-item.disabled { opacity: 0.4; cursor: not-allowed; }
-  .workout-item.disabled:hover { background: transparent; }
   .workout-date {
     font-family: 'DM Mono', monospace;
     font-size: 0.8rem;
     color: var(--green);
     min-width: 100px;
   }
-  .workout-name {
+  .workout-filename {
     font-size: 0.75rem;
     color: var(--text-dim);
     margin-left: 1rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex: 1;
   }
-  .workout-item.active .workout-name { color: var(--text); }
-  .workout-sources {
-    display: flex;
-    gap: 0.4rem;
-    margin-left: 0.5rem;
-  }
-  .source-badge {
-    font-size: 0.6rem;
-    font-weight: 600;
-    padding: 0.2rem 0.45rem;
-    border-radius: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  .source-badge.garmin { background: var(--orange-dim); color: var(--orange); }
-  .source-badge.strava { background: var(--orange-dim); color: var(--orange); }
-  .source-badge.missing { background: var(--surface2); color: var(--text-dim); opacity: 0.5; }
+  .workout-item.active .workout-filename { color: var(--text); }
 
   /* Placeholder */
   .placeholder {
@@ -184,23 +131,6 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Source indicator banner */
-  .source-banner {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.7rem 1rem;
-    border-radius: 10px;
-    margin-bottom: 1.2rem;
-    font-size: 0.78rem;
-  }
-  .source-banner.garmin { background: var(--orange-dim); border: 1px solid var(--orange); }
-  .source-banner.strava { background: var(--orange-dim); border: 1px solid var(--orange); }
-  .source-banner .label { font-weight: 600; }
-  .source-banner .info { color: var(--text-dim); flex: 1; }
-  .source-banner a { color: var(--blue); text-decoration: none; }
-  .source-banner a:hover { text-decoration: underline; }
-
   /* Analysis content (hidden by default) */
   #analysis-content { display: none; }
   #analysis-content.visible { display: block; }
@@ -217,7 +147,6 @@
     border-radius: 10px;
     padding: 0.85rem 0.95rem;
   }
-  .card.highlight { border-color: var(--orange); background: var(--orange-dim); }
   .card-l { font-size: 0.63rem; font-weight: 400; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 0.2rem; }
   .card-v { font-family: 'DM Mono', monospace; font-size: 1.4rem; font-weight: 500; }
   .card-v.g { color: var(--green); }
@@ -315,18 +244,8 @@
 <body>
 <div class="container">
   <header>
-    <div class="header-left">
-      <h1>Hill Rep <span class="a">Analysis</span></h1>
-      <div class="meta">GPS-bounded, elevation-valley rep detection</div>
-    </div>
-    <div class="source-toggle">
-      <button class="source-btn garmin active" data-source="garmin">
-        <span class="source-icon">&#x1F4BB;</span> Garmin FIT
-      </button>
-      <button class="source-btn strava" data-source="strava">
-        <span class="source-icon">&#x1F3C3;</span> Strava
-      </button>
-    </div>
+    <h1>Hill Rep <span class="a">Analysis</span></h1>
+    <div class="meta">GPS-bounded, elevation-valley rep detection</div>
   </header>
 
   <!-- Workout Selector -->
@@ -357,15 +276,10 @@
 
   <!-- Analysis Content (hidden until workout selected) -->
   <div id="analysis-content">
-    <div id="source-banner" class="source-banner garmin" style="display:none;">
-      <span class="label" id="banner-label">Garmin FIT</span>
-      <span class="info" id="banner-info"></span>
-    </div>
-
     <div class="cards" id="cards"></div>
 
     <div class="chart-box">
-      <div class="stitle">Elevation Profile</div>
+      <div class="stitle">Elevation Profile (raw)</div>
       <canvas id="chart"></canvas>
     </div>
 
@@ -384,9 +298,7 @@
 <script>
 let D = null;
 let R = [];
-let workouts = [];
 let selectedWorkout = null;
-let currentSource = 'garmin';
 
 const sum = (arr) => arr.reduce((a,b) => a+b, 0);
 const avg = (arr) => arr.length ? sum(arr) / arr.length : 0;
@@ -399,69 +311,44 @@ function fmtDurFromS(s) {
 async function loadWorkouts() {
   try {
     const response = await fetch('/api/workouts');
-    workouts = await response.json();
-    renderWorkoutList();
+    const workouts = await response.json();
+
+    const listEl = document.getElementById('workout-list');
+    const countEl = document.getElementById('workout-count');
+
+    if (workouts.length === 0) {
+      listEl.innerHTML = '<div class="loading">No workouts found in fit_files/</div>';
+      countEl.textContent = '0 workouts';
+      return;
+    }
+
+    countEl.textContent = `${workouts.length} workout${workouts.length !== 1 ? 's' : ''}`;
+
+    listEl.innerHTML = workouts.map(w => `
+      <div class="workout-item" data-filename="${w.filename}">
+        <span class="workout-date">${w.date_display}</span>
+        <span class="workout-filename">${w.filename}</span>
+      </div>
+    `).join('');
+
+    // Add click handlers
+    listEl.querySelectorAll('.workout-item').forEach(item => {
+      item.addEventListener('click', () => selectWorkout(item.dataset.filename));
+    });
+
   } catch (error) {
     document.getElementById('workout-list').innerHTML =
       `<div class="loading" style="color: var(--red)">Error loading workouts: ${error.message}</div>`;
   }
 }
 
-function renderWorkoutList() {
-  const listEl = document.getElementById('workout-list');
-  const countEl = document.getElementById('workout-count');
-
-  // Filter workouts that have data for current source
-  const availableWorkouts = workouts.filter(w => {
-    if (currentSource === 'garmin') return w.garmin_file;
-    if (currentSource === 'strava') return w.strava_id;
-    return false;
-  });
-
-  if (workouts.length === 0) {
-    listEl.innerHTML = '<div class="loading">No workouts found</div>';
-    countEl.textContent = '0 workouts';
-    return;
-  }
-
-  countEl.textContent = `${availableWorkouts.length} of ${workouts.length} workouts`;
-
-  listEl.innerHTML = workouts.map(w => {
-    const hasGarmin = !!w.garmin_file;
-    const hasStrava = !!w.strava_id;
-    const isAvailable = currentSource === 'garmin' ? hasGarmin : hasStrava;
-    const displayName = w.strava_name || w.garmin_file || 'Unknown';
-
-    return `
-      <div class="workout-item ${!isAvailable ? 'disabled' : ''}"
-           data-date="${w.date}"
-           data-garmin="${w.garmin_file || ''}"
-           data-strava="${w.strava_id || ''}">
-        <span class="workout-date">${w.date_display}</span>
-        <span class="workout-name">${displayName}</span>
-        <span class="workout-sources">
-          <span class="source-badge ${hasGarmin ? 'garmin' : 'missing'}">G</span>
-          <span class="source-badge ${hasStrava ? 'strava' : 'missing'}">S</span>
-        </span>
-      </div>
-    `;
-  }).join('');
-
-  // Add click handlers
-  listEl.querySelectorAll('.workout-item:not(.disabled)').forEach(item => {
-    item.addEventListener('click', () => selectWorkout(item.dataset));
-  });
-}
-
-async function selectWorkout(dataset) {
-  const date = dataset.date;
-
+async function selectWorkout(filename) {
   // Update selection UI
   document.querySelectorAll('.workout-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.date === date);
+    el.classList.toggle('active', el.dataset.filename === filename);
   });
 
-  selectedWorkout = dataset;
+  selectedWorkout = filename;
 
   // Hide placeholder, show loading state
   document.getElementById('placeholder').style.display = 'none';
@@ -470,21 +357,8 @@ async function selectWorkout(dataset) {
   document.getElementById('cards').innerHTML = '<div class="loading"><div class="spinner"></div>Analyzing workout...</div>';
   document.getElementById('analysis-content').classList.add('visible');
 
-  // Build API URL based on source
-  let apiUrl;
-  if (currentSource === 'garmin' && dataset.garmin) {
-    apiUrl = `/api/analyze/garmin/${encodeURIComponent(dataset.garmin)}`;
-  } else if (currentSource === 'strava' && dataset.strava) {
-    apiUrl = `/api/analyze/strava/${dataset.strava}`;
-  } else {
-    document.getElementById('analysis-content').classList.remove('visible');
-    document.getElementById('error-box').style.display = 'block';
-    document.getElementById('error-message').textContent = `No ${currentSource} data available for this workout`;
-    return;
-  }
-
   try {
-    const response = await fetch(apiUrl);
+    const response = await fetch(`/api/analyze/${encodeURIComponent(filename)}`);
     const data = await response.json();
 
     if (data.error) {
@@ -505,24 +379,6 @@ async function selectWorkout(dataset) {
 function renderAnalysis() {
   const N = R.length;
 
-  // Source banner
-  const banner = document.getElementById('source-banner');
-  const bannerLabel = document.getElementById('banner-label');
-  const bannerInfo = document.getElementById('banner-info');
-
-  banner.style.display = 'flex';
-  banner.className = `source-banner ${currentSource}`;
-
-  if (currentSource === 'strava') {
-    bannerLabel.textContent = 'Strava Data';
-    const stravaUrl = D.strava_url || `https://www.strava.com/activities/${D.strava_id}`;
-    const officialElev = D.summary?.strava_elevation_gain || 0;
-    bannerInfo.innerHTML = `Official elevation: <strong>${officialElev}m</strong> &nbsp;|&nbsp; <a href="${stravaUrl}" target="_blank">View on Strava</a>`;
-  } else {
-    bannerLabel.textContent = 'Garmin FIT Data';
-    bannerInfo.textContent = `File: ${selectedWorkout.garmin}`;
-  }
-
   const avgUpElev = avg(R.map(r=>r.up_elev)).toFixed(1);
   const avgDnElev = avg(R.map(r=>r.dn_elev)).toFixed(1);
   const avgFullDur = Math.round(avg(R.map(r=>r.full_dur_s)));
@@ -532,28 +388,16 @@ function renderAnalysis() {
   const avgHR = Math.round(avg(R.map(r=>r.full_hr)));
   const totalUpElev = sum(R.map(r=>r.up_elev)).toFixed(0);
 
-  // Build cards - add Strava official elevation for Strava source
-  let cards = [
+  document.getElementById('cards').innerHTML = [
     {l:'Reps',v:N,u:'',c:'g'},
     {l:'Total ↑ Elevation',v:totalUpElev,u:'m',c:'g'},
-  ];
-
-  if (currentSource === 'strava' && D.summary?.strava_elevation_gain) {
-    cards.push({l:'Strava Official ↑',v:Math.round(D.summary.strava_elevation_gain),u:'m',c:'o',highlight:true});
-  }
-
-  cards = cards.concat([
     {l:'Avg ↑ Gain',v:avgUpElev,u:'m',c:'g'},
     {l:'Avg ↓ Loss',v:avgDnElev,u:'m',c:'r'},
     {l:'Avg Rep Time',v:avgFullDur,u:'s',c:'b'},
     {l:'Avg ↑ Time',v:avgUpDur,u:'s',c:'g'},
     {l:'Avg ↓ Time',v:avgDnDur,u:'s',c:'r'},
     {l:'Avg HR',v:avgHR,u:'bpm',c:'o'},
-  ]);
-
-  document.getElementById('cards').innerHTML = cards.map(c=>
-    `<div class="card ${c.highlight ? 'highlight' : ''}"><div class="card-l">${c.l}</div><div class="card-v ${c.c}">${c.v} <span class="card-u">${c.u}</span></div></div>`
-  ).join('');
+  ].map(c=>`<div class="card"><div class="card-l">${c.l}</div><div class="card-v ${c.c}">${c.v} <span class="card-u">${c.u}</span></div></div>`).join('');
 
   const allHR = R.flatMap(r=>[r.up_hr, r.dn_hr]);
   const hrMin=Math.min(...allHR), hrMax=Math.max(...allHR);
@@ -650,8 +494,6 @@ function drawChart() {
   const dpr = window.devicePixelRatio || 1;
   const cD = D.chart;
 
-  if (!cD || cD.length === 0) return;
-
   const rect = canvas.getBoundingClientRect();
   canvas.width = rect.width*dpr; canvas.height = rect.height*dpr;
   ctx.scale(dpr,dpr);
@@ -664,11 +506,8 @@ function drawChart() {
   const x=t=>p.l+(t-tMin)/(tMax-tMin)*cw;
   const y=a=>p.t+ch-(a-aMin)/(aMax-aMin)*ch;
 
-  // Sawtooth region highlight
-  if (D.sawtooth_start_t && D.sawtooth_end_t) {
-    ctx.fillStyle='rgba(47,204,126,0.03)';
-    ctx.fillRect(x(D.sawtooth_start_t),p.t,x(D.sawtooth_end_t)-x(D.sawtooth_start_t),ch);
-  }
+  ctx.fillStyle='rgba(47,204,126,0.03)';
+  ctx.fillRect(x(D.sawtooth_start_t),p.t,x(D.sawtooth_end_t)-x(D.sawtooth_start_t),ch);
 
   ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
   for(let a=Math.ceil(aMin/5)*5;a<=aMax;a+=5){
@@ -693,39 +532,11 @@ function drawChart() {
   cD.forEach(d=>ctx.lineTo(x(d.t),y(d.a)));
   ctx.strokeStyle='#2fcc7e';ctx.lineWidth=1.3;ctx.stroke();
 
-  if (D.valleys) {
-    D.valleys.forEach(v=>{
-      ctx.beginPath();ctx.arc(x(v.t),y(v.a),2.5,0,Math.PI*2);
-      ctx.fillStyle='rgba(47,204,126,0.65)';ctx.fill();
-    });
-  }
-}
-
-// Source toggle
-document.querySelectorAll('.source-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (btn.classList.contains('active')) return;
-
-    document.querySelectorAll('.source-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentSource = btn.dataset.source;
-
-    // Re-render workout list with new source
-    renderWorkoutList();
-
-    // If a workout was selected, try to reload with new source
-    if (selectedWorkout) {
-      const hasData = currentSource === 'garmin' ? selectedWorkout.garmin : selectedWorkout.strava;
-      if (hasData) {
-        selectWorkout(selectedWorkout);
-      } else {
-        document.getElementById('analysis-content').classList.remove('visible');
-        document.getElementById('placeholder').style.display = 'block';
-        document.getElementById('error-box').style.display = 'none';
-      }
-    }
+  D.valleys.forEach(v=>{
+    ctx.beginPath();ctx.arc(x(v.t),y(v.a),2.5,0,Math.PI*2);
+    ctx.fillStyle='rgba(47,204,126,0.65)';ctx.fill();
   });
-});
+}
 
 // Tab switching
 document.querySelectorAll('.tab').forEach(t => {

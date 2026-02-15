@@ -1,0 +1,91 @@
+{
+  "generated_at": "2026-02-15T12:45:19.909405",
+  "total_activities": 9,
+  "total_reps": 276,
+  "total_strava_elevation": 3704.0,
+  "everest_progress_percent": 41.9,
+  "remaining_meters": 5144.0,
+  "activities": [
+    {
+      "strava_id": 17189883923,
+      "strava_url": "https://www.strava.com/activities/17189883923",
+      "name": "Morning Trail Run",
+      "date": "27 Jan 2026",
+      "num_reps": 15,
+      "strava_elevation": 209.0,
+      "rep_elevation": 215.8
+    },
+    {
+      "strava_id": 17234095059,
+      "strava_url": "https://www.strava.com/activities/17234095059",
+      "name": "Lunch Trail Run",
+      "date": "30 Jan 2026",
+      "num_reps": 20,
+      "strava_elevation": 270.0,
+      "rep_elevation": 276.4
+    },
+    {
+      "strava_id": 17234353979,
+      "strava_url": "https://www.strava.com/activities/17234353979",
+      "name": "Morning Trail Run",
+      "date": "31 Jan 2026",
+      "num_reps": 34,
+      "strava_elevation": 436.0,
+      "rep_elevation": 466.4
+    },
+    {
+      "strava_id": 17245427106,
+      "strava_url": "https://www.strava.com/activities/17245427106",
+      "name": "Morning Trail Run",
+      "date": "01 Feb 2026",
+      "num_reps": 48,
+      "strava_elevation": 625.0,
+      "rep_elevation": 662.6
+    },
+    {
+      "strava_id": 17267918897,
+      "strava_url": "https://www.strava.com/activities/17267918897",
+      "name": "Morning Trail Run",
+      "date": "03 Feb 2026",
+      "num_reps": 23,
+      "strava_elevation": 320.0,
+      "rep_elevation": 326.2
+    },
+    {
+      "strava_id": 17291662175,
+      "strava_url": "https://www.strava.com/activities/17291662175",
+      "name": "Morning Trail Run",
+      "date": "05 Feb 2026",
+      "num_reps": 22,
+      "strava_elevation": 306.0,
+      "rep_elevation": 309.6
+    },
+    {
+      "strava_id": 17346858884,
+      "strava_url": "https://www.strava.com/activities/17346858884",
+      "name": "Morning Trail Run",
+      "date": "10 Feb 2026",
+      "num_reps": 32,
+      "strava_elevation": 435.0,
+      "rep_elevation": 455.0
+    },
+    {
+      "strava_id": 17370043989,
+      "strava_url": "https://www.strava.com/activities/17370043989",
+      "name": "Morning Trail Run",
+      "date": "12 Feb 2026",
+      "num_reps": 32,
+      "strava_elevation": 419.0,
+      "rep_elevation": 439.6
+    },
+    {
+      "strava_id": 17402027757,
+      "strava_url": "https://www.strava.com/activities/17402027757",
+      "name": "Morning Trail Run",
+      "date": "15 Feb 2026",
+      "num_reps": 50,
+      "strava_elevation": 684.0,
+      "rep_elevation": 713.6
+    }
+  ]
+}
